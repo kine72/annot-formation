@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<title>Annot'Formation</title>
+<meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="app.css">
+<script src="lib/pdf-lib.min.js"></script>
+<script type="module" src="app.js"></script>
+</head>
+<body>
+
+<!-- ============ BIBLIOTHÈQUE ============ -->
+<div id="library" class="view">
+  <header class="topbar">
+    <div class="brand">Annot'<span>Formation</span></div>
+    <div class="spacer"></div>
+    <label class="btn primary">＋ Importer un PDF<input type="file" id="importInput" accept="application/pdf,.pdf" hidden></label>
+  </header>
+  <div class="lib-body">
+    <div id="docGrid" class="grid"></div>
+    <div id="emptyLib" class="empty hidden">
+      <b>Ta bibliothèque est vide.</b><br>
+      Importe le PDF de ta formation avec le bouton <b>＋ Importer un PDF</b>.<br>
+      Tout est enregistré automatiquement sur la tablette, même sans connexion.
+    </div>
+    <div id="storageNote" class="storage-note"></div>
+  </div>
+</div>
+
+<!-- ============ LECTEUR ============ -->
+<div id="reader" class="view hidden">
+  <header class="topbar">
+    <button id="backBtn" class="btn ghost" title="Retour à la bibliothèque">‹ Bibliothèque</button>
+    <div id="docTitle" class="doc-title"></div>
+    <div class="spacer"></div>
+    <span id="saveState" class="save-state">✓ Enregistré</span>
+    <button id="pageInd" class="btn ghost" title="Aller à une diapo">– / –</button>
+    <button id="toolText" class="btn tool" title="Poser une zone de texte sur une diapo">T＋ Texte</button>
+    <button id="toolFree" class="btn tool" title="Surligner en traçant un rectangle (PDF scannés)">▭ Surligneur libre</button>
+    <button id="exportBtn" class="btn primary">Exporter</button>
+  </header>
+
+  <div id="fmtBar" class="fmtbar disabled">
+    <span class="hint">Touche une zone de texte ou une page de notes pour écrire →</span>
+    <button class="fb" data-cmd="bold" title="Gras (Ctrl+B)"><b>G</b></button>
+    <button class="fb" data-cmd="italic" title="Italique (Ctrl+I)"><i>I</i></button>
+    <button class="fb" data-cmd="underline" title="Souligné (Ctrl+U)"><u>S</u></button>
+    <span class="sep"></span>
+    <button class="fb txt" data-block="h1" title="Titre (Ctrl+Alt+1)">Titre</button>
+    <button class="fb txt" data-block="h2" title="Sous-titre (Ctrl+Alt+2)">Sous-titre</button>
+    <button class="fb txt" data-block="p" title="Texte normal (Ctrl+Alt+0)">Texte</button>
+    <span class="sep"></span>
+    <button class="fb" data-cmd="insertUnorderedList" title="Liste à puces (Ctrl+Maj+8)">• ≡</button>
+    <button class="fb" data-cmd="insertOrderedList" title="Liste numérotée (Ctrl+Maj+7)">1. ≡</button>
+    <span class="sep"></span>
+    <span class="fb-group">
+      <button class="fb" data-color="#1a1a1a" title="Noir"><span class="swatch" style="background:#1a1a1a"></span></button>
+      <button class="fb" data-color="#c62828" title="Rouge"><span class="swatch" style="background:#c62828"></span></button>
+      <button class="fb" data-color="#1565c0" title="Bleu"><span class="swatch" style="background:#1565c0"></span></button>
+      <button class="fb" data-color="#2e7d32" title="Vert"><span class="swatch" style="background:#2e7d32"></span></button>
+    </span>
+    <button class="fb txt" data-hilite="#fff176" title="Surligner le texte tapé"><span style="background:#fff176;padding:2px 5px;border-radius:3px">ab</span></button>
+    <button class="fb txt" data-hilite="transparent" title="Retirer le surlignage du texte">ab̶</button>
+    <span class="sep"></span>
+    <button class="fb" data-cmd="undo" title="Annuler (Ctrl+Z)">↶</button>
+    <button class="fb" data-cmd="redo" title="Rétablir (Ctrl+Y)">↷</button>
+    <span id="boxTools" class="fb-group">
+      <span class="sep"></span>
+      <button class="fb txt" data-box="smaller" title="Texte plus petit">A−</button>
+      <button class="fb txt" data-box="bigger" title="Texte plus grand">A＋</button>
+      <button class="fb txt" data-box="bg" title="Fond : blanc / post-it / transparent">Fond</button>
+      <button class="fb txt" data-box="delete" title="Supprimer la zone" style="color:#b42318">🗑 Zone</button>
+    </span>
+    <span id="noteTools" class="fb-group">
+      <span class="sep"></span>
+      <button class="fb txt" data-note="cam" title="Prendre une photo">📷 Photo</button>
+      <button class="fb txt" data-note="gal" title="Importer une image">🖼 Image</button>
+    </span>
+  </div>
+
+  <div id="viewer" class="viewer"></div>
+</div>
+
+<!-- Pop-up de surlignage (sélection de texte) -->
+<div id="hlPop" class="pop hidden">
+  <span class="lab">Surligner</span>
+  <button class="cbtn" data-c="yellow" style="background:#ffeb3b" title="Jaune"></button>
+  <button class="cbtn" data-c="green" style="background:#9be58a" title="Vert"></button>
+  <button class="cbtn" data-c="pink" style="background:#ff9ecf" title="Rose"></button>
+  <button class="cbtn" data-c="blue" style="background:#8fd3ff" title="Bleu"></button>
+</div>
+<!-- Pop-up sur un surlignage existant -->
+<div id="hlEditPop" class="pop hidden">
+  <button class="cbtn" data-c="yellow" style="background:#ffeb3b"></button>
+  <button class="cbtn" data-c="green" style="background:#9be58a"></button>
+  <button class="cbtn" data-c="pink" style="background:#ff9ecf"></button>
+  <button class="cbtn" data-c="blue" style="background:#8fd3ff"></button>
+  <button class="btn small danger" data-act="del">Retirer</button>
+</div>
+
+<div id="toast" class="toast"></div>
+<div id="measureHost"></div>
+
+<input type="file" id="camInput" accept="image/*" capture="environment" hidden>
+<input type="file" id="galInput" accept="image/*" multiple hidden>
+
+</body>
+</html>

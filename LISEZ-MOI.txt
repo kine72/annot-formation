@@ -1,0 +1,58 @@
+ANNOT'FORMATION — installation (une seule fois, ~10 minutes sur un PC)
+=====================================================================
+
+L'appli est une "PWA" : une page web qui s'installe comme une appli et
+fonctionne ensuite SANS INTERNET. Il faut juste la mettre en ligne une
+fois, gratuitement, sur GitHub Pages. Tes PDF et tes notes ne vont PAS
+sur GitHub : ils restent sur la tablette (et dans ton Drive quand tu exportes).
+
+1) METTRE L'APPLI EN LIGNE (sur PC)
+   a. Crée un compte gratuit sur https://github.com
+   b. Bouton "+" en haut à droite → "New repository"
+      - Nom : annot-formation
+      - Coche "Public" → "Create repository"
+   c. Sur la page du dépôt : lien "uploading an existing file"
+      → glisse TOUT le contenu du dossier dézippé (index.html, app.js,
+        app.css, sw.js, manifest.webmanifest et les dossiers lib, fonts, icons)
+      → bouton vert "Commit changes"
+   d. Onglet "Settings" → "Pages" (menu de gauche)
+      → Source : "Deploy from a branch" → Branch : "main" / "(root)" → Save
+   e. Attends 1-2 minutes. Ton adresse sera :
+      https://TON-PSEUDO.github.io/annot-formation/
+
+2) INSTALLER SUR LA TABLETTE ANDROID
+   a. Ouvre cette adresse dans Chrome
+   b. Menu ⋮ → "Installer l'application" (ou "Ajouter à l'écran d'accueil")
+   c. Lance-la depuis l'icône. À partir de là, plus besoin d'internet.
+
+3) UTILISATION
+   - "＋ Importer un PDF" : ajoute le support de formation à ta bibliothèque
+   - "T＋ Texte" puis touche la diapo : zone de texte posée sur la diapo
+     (poignée ✥ pour déplacer, ↔ pour la largeur, A− A＋, fond, 🗑)
+   - "＋ Page de notes après la diapo N" : page blanche insérée
+     → titres, sous-titres, gras, italique, souligné, listes, couleurs
+     → 📷 Photo ouvre directement l'appareil photo
+   - Surligner : appui long sur le texte de la diapo, ajuste la sélection,
+     puis choisis la couleur dans la bulle "Surligner"
+     Toucher un surlignage = changer sa couleur ou le retirer
+   - "▭ Surligneur libre" : pour les PDF scannés (sans texte sélectionnable)
+   - Clavier Bluetooth : Ctrl+B/I/U, Ctrl+Alt+1 (titre), Ctrl+Alt+2
+     (sous-titre), Ctrl+Alt+0 (texte), Ctrl+Maj+8 (puces), Ctrl+Maj+7
+     (numérotée), Ctrl+Z / Ctrl+Y, Ctrl+S
+   - Enregistrement automatique à chaque frappe ("✓ Enregistré" en haut)
+
+4) EXPORT VERS DRIVE (= ta sauvegarde)
+   "Exporter" → laisse coché "Inclure le projet modifiable" → "Créer le PDF"
+   → "Envoyer vers Drive…" → Drive → choisis le dossier.
+   Ce PDF se lit partout ET peut être réimporté dans l'appli pour continuer
+   à annoter (il propose alors "Restaurer le projet").
+
+Limites connues
+   - Dans le PDF exporté, les symboles hors alphabet latin sont convertis :
+     → devient ->, ≥ devient >=, α devient alpha ; les émojis sont retirés.
+   - Une page de notes trop longue se poursuit automatiquement sur une
+     2e page dans le PDF exporté.
+   - Le collage depuis une autre appli colle du texte brut (sans mise en forme).
+
+Police : Liberation Sans (licence SIL OFL, voir fonts/). Moteurs : pdf.js (Mozilla,
+Apache 2.0) et pdf-lib (MIT).
