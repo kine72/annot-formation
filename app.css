@@ -100,10 +100,14 @@ body {
 
 /* ---------- Lecteur ---------- */
 .viewer {
-  flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px 0 50vh;
-  display: flex; flex-direction: column; align-items: center; gap: 0;
+  flex: 1; overflow: auto; padding: 16px 0 50vh; touch-action: pan-x pan-y;
   -webkit-overflow-scrolling: touch;
 }
+.vinner {
+  display: flex; flex-direction: column; align-items: center; min-width: 100%; width: max-content;
+  padding: 0 10px; transform-origin: 0 0; will-change: auto;
+}
+.vinner.pinching { will-change: transform; }
 .page {
   position: relative; background: #fff; box-shadow: 0 1px 4px rgb(0 0 0 / .18); flex: none;
   margin-top: 6px; overflow: hidden;

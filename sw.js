@@ -1,5 +1,5 @@
 // Service worker : met toute l'appli en cache pour un fonctionnement 100 % hors ligne.
-const VERSION = 'annotformation-v3';
+const VERSION = 'annotformation-v4';
 const ASSETS = [
  "./",
  "app.css",

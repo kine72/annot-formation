@@ -309,7 +309,7 @@ async function restoreProject(projBytes, origBytes, fileName) {
 const R = {
   doc: null, pdf: null, state: null,
   pageEls: [], noteEls: new Map(), boxEls: new Map(), imgUrls: new Map(),
-  W: 0, visible: new Set(), renderGen: 0, io: null, ro: null,
+  W: 0, zoom: 1, inner: null, visible: new Set(), renderGen: 0, io: null, ro: null,
   mode: null, activeEditor: null, savedRange: null, dirtyEds: new Set(), saveT: null,
   photoTarget: null, editHl: null, lastColor: 'yellow', curPage: 0,
 };
@@ -366,6 +366,11 @@ async function closeReader(fromPopstate = false) {
 
 function buildReader() {
   viewer.replaceChildren();
+  R.inner = document.createElement('div');
+  R.inner.className = 'vinner';
+  viewer.append(R.inner);
+  R.zoom = 1;
+  $('#zoomInd').textContent = '🔍 100 %';
   R.pageEls = []; R.noteEls.clear(); R.boxEls.clear(); R.visible = new Set();
   const n = R.doc.pageCount;
   const byAfter = new Map();
@@ -376,15 +381,15 @@ function buildReader() {
     el.dataset.i = i;
     el.innerHTML = `<canvas class="pc"></canvas><div class="layer hlLayer"></div><div class="textLayer"></div><div class="layer boxLayer"></div><div class="layer freeLayer"></div><div class="pnum">${i + 1}</div>`;
     setupFreeLayer(el);
-    viewer.append(el);
+    R.inner.append(el);
     R.pageEls.push(el);
-    for (const note of byAfter.get(i) || []) viewer.append(makeNote(note));
+    for (const note of byAfter.get(i) || []) R.inner.append(makeNote(note));
     const chip = document.createElement('button');
     chip.className = 'addNote';
     chip.dataset.after = i;
     chip.textContent = `＋ Page de notes après la diapo ${i + 1}`;
     chip.onclick = () => addNote(i);
-    viewer.append(chip);
+    R.inner.append(chip);
   }
   for (const b of R.state.boxes) if (b.page < n) makeBox(b);
   for (let i = 0; i < n; i++) renderHls(i);
@@ -410,7 +415,7 @@ function buildReader() {
 }
 
 function layout() {
-  const W = Math.floor(Math.min(viewer.clientWidth - 20, 1400));
+  const W = Math.floor(Math.min(viewer.clientWidth - 20, 1400) * R.zoom);
   if (W <= 0) return;
   R.W = W;
   R.pageEls.forEach((el, i) => {
@@ -462,8 +467,8 @@ async function renderPage(i) {
   if (pdf !== R.pdf) return;
   const s = el._s;
   const vp = page.getViewport({ scale: s });
-  let dpr = Math.min(window.devicePixelRatio || 1, 2);
-  if (vp.width * dpr > 2400) dpr = 2400 / vp.width;
+  // netteté plafonnée à ~9 millions de pixels par page pour ménager la mémoire de la tablette
+  const dpr = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(9e6 / (vp.width * vp.height)));
   const canvas = document.createElement('canvas');
   canvas.className = 'pc';
   canvas.width = Math.round(vp.width * dpr);
@@ -498,6 +503,59 @@ function releasePage(i) {
   if (!selectionInside(tl)) tl.replaceChildren();
   el._gen = null;
 }
+
+/* ---------- Zoom (pincement à deux doigts, Ctrl +/−) ---------- */
+const ZOOM_MIN = 1, ZOOM_MAX = 3;
+function setZoom(z, fx, fy) {
+  if (!R.doc) return;
+  z = clamp(Math.round(z * 100) / 100, ZOOM_MIN, ZOOM_MAX);
+  if (Math.abs(z - R.zoom) < 0.01) return;
+  if (fx == null) { fx = viewer.clientWidth / 2; fy = viewer.clientHeight / 2; }
+  const cx = viewer.scrollLeft + fx, cy = viewer.scrollTop + fy;
+  const k = z / R.zoom;
+  R.zoom = z;
+  layout();
+  viewer.scrollLeft = cx * k - fx;
+  viewer.scrollTop = cy * k - fy;
+  $('#zoomInd').textContent = `🔍 ${Math.round(z * 100)} %`;
+  if (R.selImg) positionImgUI();
+  updatePageIndicator();
+}
+$('#zoomInd').onclick = () => setZoom(1);
+let pinch = null;
+const dist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+viewer.addEventListener('touchstart', (e) => {
+  if (e.touches.length !== 2 || !R.doc) return;
+  const vr = viewer.getBoundingClientRect();
+  const fx = (e.touches[0].clientX + e.touches[1].clientX) / 2 - vr.left;
+  const fy = (e.touches[0].clientY + e.touches[1].clientY) / 2 - vr.top;
+  pinch = { d0: dist(e.touches) || 1, z0: R.zoom, z: R.zoom, fx, fy };
+  R.inner.style.transformOrigin = `${viewer.scrollLeft + fx}px ${viewer.scrollTop + fy - 16}px`;
+  R.inner.classList.add('pinching');
+  hidePops();
+}, { passive: true });
+viewer.addEventListener('touchmove', (e) => {
+  if (!pinch || e.touches.length !== 2) return;
+  e.preventDefault();
+  pinch.z = clamp((pinch.z0 * dist(e.touches)) / pinch.d0, ZOOM_MIN, ZOOM_MAX);
+  R.inner.style.transform = `scale(${pinch.z / pinch.z0})`;
+}, { passive: false });
+const endPinch = (e) => {
+  if (!pinch || e.touches.length >= 2) return;
+  const p = pinch;
+  pinch = null;
+  R.inner.style.transform = '';
+  R.inner.classList.remove('pinching');
+  setZoom(p.z, p.fx, p.fy);
+};
+viewer.addEventListener('touchend', endPinch);
+viewer.addEventListener('touchcancel', endPinch);
+document.addEventListener('keydown', (e) => {
+  if (!R.doc || !(e.ctrlKey || e.metaKey) || e.altKey) return;
+  if (e.key === '+' || e.key === '=') { e.preventDefault(); setZoom(R.zoom + 0.25); }
+  else if (e.key === '-') { e.preventDefault(); setZoom(R.zoom - 0.25); }
+  else if (e.key === '0' && !e.shiftKey) { e.preventDefault(); setZoom(1); }
+});
 
 /* ---------- Indicateur de diapo ---------- */
 let scrollRaf = 0;
@@ -808,7 +866,7 @@ function makeBox(b) {
   el.className = 'tbox bg-' + (b.bg || 'white');
   el.dataset.id = b.id;
   el.style.left = b.x + 'em'; el.style.top = b.y + 'em'; el.style.width = b.w + 'em';
-  el.innerHTML = `<div class="tb-grip" title="Déplacer">✥</div><div class="tb-edit rich" contenteditable="true" data-ph="Ton texte…"></div><div class="tb-resize" title="Largeur">↔</div>`;
+  el.innerHTML = `<div class="tb-grip" title="Déplacer">✥</div><div class="tb-edit rich" contenteditable="true" spellcheck="true" lang="fr" autocapitalize="sentences" autocorrect="on" data-ph="Ton texte…"></div><div class="tb-resize" title="Largeur">↔</div>`;
   const ed = $('.tb-edit', el);
   ed.style.fontSize = b.fs + 'em';
   ed.style.setProperty('--u', boxUnit(b.fs));
@@ -891,7 +949,7 @@ function makeNote(n) {
       <button class="btn small" data-a="cam" title="Prendre une photo">📷 Photo</button>
       <button class="btn small" data-a="gal" title="Importer une image">🖼 Image</button>
       <button class="btn small danger" data-a="del" title="Supprimer cette page">🗑</button></div>
-    <div class="note-paper"><div class="note-edit rich" contenteditable="true" data-ph="Tes notes… (titres, listes, gras : barre d’outils en haut)"></div></div>`;
+    <div class="note-paper"><div class="note-edit rich" contenteditable="true" spellcheck="true" lang="fr" autocapitalize="sentences" autocorrect="on" data-ph="Tes notes… (titres, listes, gras : barre d’outils en haut)"></div></div>`;
   const ed = $('.note-edit', el);
   ed.innerHTML = n.html || '<p><br></p>';
   hydrateImages(ed, R.imgUrls);
@@ -929,7 +987,7 @@ function addNote(after) {
   R.state.notes.push(n);
   const el = makeNote(n);
   const chip = $(`.addNote[data-after="${after}"]`, viewer);
-  viewer.insertBefore(el, chip);
+  chip.before(el);
   layoutNote(el, n);
   const ed = $('.note-edit', el);
   ed.focus();
