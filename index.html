@@ -51,6 +51,8 @@
     <button class="fb" data-cmd="italic" title="Italique (Ctrl+I)"><i>I</i></button>
     <button class="fb" data-cmd="underline" title="Souligné (Ctrl+U)"><u>S</u></button>
     <span class="sep"></span>
+    <select id="sizeSel" class="fb-select" title="Taille du texte sélectionné"><option value="" disabled>Taille</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option><option value="14">14</option><option value="16">16</option><option value="18">18</option><option value="20">20</option><option value="22">22</option><option value="25">25</option></select>
+    <span class="sep"></span>
     <button class="fb txt" data-block="h1" title="Titre (Ctrl+Alt+1)">Titre</button>
     <button class="fb txt" data-block="h2" title="Sous-titre (Ctrl+Alt+2)">Sous-titre</button>
     <button class="fb txt" data-block="p" title="Texte normal (Ctrl+Alt+0)">Texte</button>
@@ -102,6 +104,23 @@
   <button class="cbtn" data-c="blue" style="background:#8fd3ff"></button>
   <button class="btn small danger" data-act="del">Retirer</button>
 </div>
+
+<!-- Barre d'outils d'une photo sélectionnée (pages de notes) -->
+<div id="imgPop" class="pop hidden">
+  <button class="fb" data-i="smaller" title="Plus petite">−</button>
+  <span id="imgPct" class="lab pct">50 %</span>
+  <button class="fb" data-i="bigger" title="Plus grande">＋</button>
+  <span class="sep"></span>
+  <button class="fb txt" data-i="left" title="À gauche, texte à droite">◧ Gauche</button>
+  <button class="fb txt" data-i="center" title="Centrée, seule sur sa ligne">▣ Centre</button>
+  <button class="fb txt" data-i="right" title="À droite, texte à gauche">◨ Droite</button>
+  <span class="sep"></span>
+  <button class="fb" data-i="up" title="Monter d'un paragraphe">↑</button>
+  <button class="fb" data-i="down" title="Descendre d'un paragraphe">↓</button>
+  <span class="sep"></span>
+  <button class="fb" data-i="del" title="Supprimer la photo" style="color:#b42318">🗑</button>
+</div>
+<div id="imgHandle" class="img-handle hidden" title="Glisser pour redimensionner">⤡</div>
 
 <div id="toast" class="toast"></div>
 <div id="measureHost"></div>

@@ -72,7 +72,11 @@ body {
 .fb.txt { font-size: 14px; }
 .swatch { width: 26px; height: 26px; border-radius: 50%; display: inline-block; border: 2px solid #fff; box-shadow: 0 0 0 1px #b8c0c9; vertical-align: middle; }
 .fb-group { display: flex; align-items: center; gap: 2px; }
-.fmtbar.disabled .fb { opacity: .38; }
+.fmtbar.disabled .fb, .fmtbar.disabled .fb-select { opacity: .38; }
+.fb-select {
+  flex: none; height: 42px; min-width: 74px; padding: 0 8px; border-radius: 8px; border: 1px solid #cfd6de;
+  background: #fff; font: inherit; font-size: 15px; color: var(--ink);
+}
 .fmtbar .hint { font-size: 13px; color: var(--muted); padding: 0 8px; white-space: nowrap; }
 .fmtbar:not(.disabled) .hint { display: none; }
 
@@ -160,6 +164,7 @@ body {
   white-space: pre-wrap; overflow-wrap: break-word; word-break: normal; color: #1a1a1a;
   -webkit-user-select: text; user-select: text; text-size-adjust: none; -webkit-text-size-adjust: none;
 }
+.note-edit { --u: calc(var(--s, 1) * 1px); }
 .rich p, .rich div { margin: 0 0 .35em; }
 .rich h1 { font-size: 1.55em; font-weight: 700; margin: .3em 0 .3em; line-height: 1.2; color: #0b4f4a; }
 .rich h2 { font-size: 1.22em; font-weight: 700; margin: .35em 0 .25em; line-height: 1.22; color: #1f3a5f; }
@@ -172,6 +177,21 @@ body {
   max-height: calc(var(--ph, 400) * .45 * var(--s, 1) * 1px); border-radius: 0;
 }
 .rich p.ph { margin: 0; }
+.rich img { -webkit-user-drag: none; user-drag: none; cursor: pointer; }
+.rich img[style*="width"] { max-height: none; }
+.rich img.al-left { float: left; margin: .2em 1em .5em 0; }
+.rich img.al-right { float: right; margin: .2em 0 .5em 1em; }
+.rich img.al-center { display: block; float: none; margin: .45em auto; }
+.rich img.sel { outline: 3px solid var(--accent); outline-offset: 2px; }
+.note-edit::after { content: ""; display: block; clear: both; }
+.pop .sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 3px; }
+.pop .pct { min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; padding: 0 2px; }
+.img-handle {
+  position: fixed; z-index: 61; width: 44px; height: 44px; border-radius: 50%; background: var(--accent); color: #fff;
+  font-size: 22px; line-height: 44px; text-align: center; touch-action: none; user-select: none; -webkit-user-select: none;
+  box-shadow: 0 2px 8px rgb(0 0 0 / .3); cursor: nwse-resize;
+}
+.img-handle.flip { transform: scaleX(-1); cursor: nesw-resize; }
 
 /* Zones de texte posées sur les diapos */
 .tbox { position: absolute; pointer-events: auto; min-width: 2em; }

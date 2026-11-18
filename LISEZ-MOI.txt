@@ -30,8 +30,11 @@ sur GitHub : ils restent sur la tablette (et dans ton Drive quand tu exportes).
    - "T＋ Texte" puis touche la diapo : zone de texte posée sur la diapo
      (poignée ✥ pour déplacer, ↔ pour la largeur, A− A＋, fond, 🗑)
    - "＋ Page de notes après la diapo N" : page blanche insérée
-     → titres, sous-titres, gras, italique, souligné, listes, couleurs
+     → titres, sous-titres, gras, italique, souligné, listes, couleurs,
+       taille du texte de 4 à 25 (sélectionne le texte puis choisis la taille)
      → 📷 Photo ouvre directement l'appareil photo
+     → touche une photo : taille (− ＋ ou poignée ⤡), Gauche / Centre / Droite
+       (le texte s'enroule autour), ↑ ↓ pour la déplacer, 🗑 pour la supprimer
    - Surligner : appui long sur le texte de la diapo, ajuste la sélection,
      puis choisis la couleur dans la bulle "Surligner"
      Toucher un surlignage = changer sa couleur ou le retirer

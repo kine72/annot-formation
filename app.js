@@ -347,6 +347,7 @@ async function openDoc(id) {
 
 async function closeReader(fromPopstate = false) {
   if (!R.doc) return;
+  deselectImage();
   deactivateEditor();
   await saveNow();
   R.io?.disconnect(); R.ro?.disconnect();
@@ -502,7 +503,7 @@ function releasePage(i) {
 let scrollRaf = 0;
 viewer.addEventListener('scroll', () => {
   if (scrollRaf) return;
-  scrollRaf = requestAnimationFrame(() => { scrollRaf = 0; updatePageIndicator(); });
+  scrollRaf = requestAnimationFrame(() => { scrollRaf = 0; updatePageIndicator(); if (R.selImg) positionImgUI(); });
   hidePops(true);
   if (!$('#hlPop').classList.contains('hidden')) { clearTimeout(selT); selT = setTimeout(onTextSelection, 120); }
 }, { passive: true });
@@ -532,14 +533,192 @@ $('#pageInd').onclick = async () => {
 function setupEditor(ed, kind, id) {
   ed._kind = kind; ed._id = id;
   ed.addEventListener('focusin', () => activateEditor(ed));
-  ed.addEventListener('input', () => { updateEmpty(ed); markDirty(ed); });
+  ed.addEventListener('input', () => { convertSizeMarkers(ed); updateEmpty(ed); markDirty(ed); });
   ed.addEventListener('paste', (e) => {
     const t = e.clipboardData?.getData('text/plain');
     if (t != null && t !== '') { e.preventDefault(); document.execCommand('insertText', false, t); }
   });
   ed.addEventListener('keydown', onEditorKey);
+  if (kind === 'note') {
+    ed.addEventListener('click', (e) => { if (e.target.tagName === 'IMG') selectImage(e.target); });
+    ed.addEventListener('contextmenu', (e) => { if (e.target.tagName === 'IMG') e.preventDefault(); });
+    ed.addEventListener('input', () => { if (R.selImg) requestAnimationFrame(positionImgUI); });
+  }
   updateEmpty(ed);
 }
+
+/* ---------- Photos : sélection, taille, position ---------- */
+const imgPop = $('#imgPop'), imgHandle = $('#imgHandle');
+function imgBlock(img) {
+  const ed = img.closest('.note-edit');
+  let b = img;
+  while (b && b.parentNode !== ed) b = b.parentNode;
+  return b || img;
+}
+function selectImage(img) {
+  if (R.selImg !== img) {
+    deselectImage();
+    R.selImg = img;
+    img.classList.add('sel');
+    imgPop.classList.remove('hidden');
+    imgHandle.classList.remove('hidden');
+  }
+  positionImgUI();
+}
+function deselectImage() {
+  if (!R.selImg) return;
+  R.selImg.classList.remove('sel');
+  if (!R.selImg.getAttribute('class')) R.selImg.removeAttribute('class');
+  R.selImg = null;
+  imgPop.classList.add('hidden');
+  imgHandle.classList.add('hidden');
+}
+function imgPct(img) {
+  const bw = imgBlock(img).getBoundingClientRect().width || 1;
+  return Math.round((img.getBoundingClientRect().width / bw) * 100);
+}
+// largeur max (en %) pour que la photo tienne sur une page du PDF exporté
+function maxPct(img) {
+  const paper = img.closest('.note-paper');
+  const s = parseFloat(paper.style.getPropertyValue('--s')) || 1;
+  const ph = parseFloat(paper.style.getPropertyValue('--ph')) || 400;
+  const capH = (ph - NOTE_M.top - NOTE_M.bottom - 12) * s;
+  const ratio = img.naturalWidth && img.naturalHeight ? img.naturalWidth / img.naturalHeight : (img.width / img.height) || 1.33;
+  const bw = imgBlock(img).getBoundingClientRect().width || 1;
+  return clamp(Math.floor(((capH * ratio) / bw) * 100), 10, 100);
+}
+function setImgPct(img, pct) { img.style.width = clamp(Math.round(pct), 10, maxPct(img)) + '%'; }
+function positionImgUI() {
+  const img = R.selImg;
+  if (!img || !img.isConnected) { deselectImage(); return; }
+  const r = img.getBoundingClientRect();
+  const vr = viewer.getBoundingClientRect();
+  const off = r.bottom < vr.top || r.top > vr.bottom;
+  imgPop.style.visibility = imgHandle.style.visibility = off ? 'hidden' : '';
+  if (off) return;
+  $('#imgPct').textContent = imgPct(img) + ' %';
+  for (const k of ['left', 'center', 'right']) {
+    const on = k === 'center' ? !img.classList.contains('al-left') && !img.classList.contains('al-right') : img.classList.contains('al-' + k);
+    $(`[data-i=${k}]`, imgPop).classList.toggle('on', on);
+  }
+  const pw = imgPop.offsetWidth, ph = imgPop.offsetHeight;
+  let top = r.top - ph - 12;
+  if (top < vr.top + 4) top = Math.min(r.bottom + 12, innerHeight - ph - 8);
+  imgPop.style.top = top + 'px';
+  imgPop.style.left = clamp(r.left + r.width / 2 - pw / 2, 8, innerWidth - pw - 8) + 'px';
+  const right = img.classList.contains('al-right');
+  imgHandle.classList.toggle('flip', right);
+  imgHandle.style.top = clamp(r.bottom - 24, vr.top, innerHeight - 50) + 'px';
+  imgHandle.style.left = (right ? r.left - 20 : r.right - 24) + 'px';
+}
+function ensureTrailingP(ed) {
+  const l = ed.lastElementChild;
+  if (!l || l.classList.contains('ph') || l.querySelector('img')) { const p = document.createElement('p'); p.innerHTML = '<br>'; ed.append(p); }
+}
+for (const ev of ['pointerdown', 'mousedown']) imgPop.addEventListener(ev, (e) => e.preventDefault());
+imgPop.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-i]');
+  const img = R.selImg;
+  if (!b || !img) return;
+  const ed = img.closest('.note-edit');
+  const blk = imgBlock(img);
+  const act = b.dataset.i;
+  if (act === 'smaller' || act === 'bigger') setImgPct(img, imgPct(img) + (act === 'bigger' ? 10 : -10));
+  else if (act === 'left' || act === 'center' || act === 'right') {
+    img.classList.remove('al-left', 'al-center', 'al-right');
+    if (act !== 'center') { img.classList.add('al-' + act); if (!img.style.width || imgPct(img) > 60) setImgPct(img, Math.min(45, imgPct(img))); }
+  } else if (act === 'up') { const p = blk.previousElementSibling; if (p) p.before(blk); }
+  else if (act === 'down') { const n = blk.nextElementSibling; if (n) n.after(blk); }
+  else if (act === 'del') { deselectImage(); blk.remove(); ensureTrailingP(ed); updateEmpty(ed); markDirty(ed); return; }
+  ensureTrailingP(ed);
+  markDirty(ed);
+  requestAnimationFrame(() => { img.scrollIntoView({ block: 'nearest' }); positionImgUI(); });
+});
+imgHandle.addEventListener('pointerdown', (e) => {
+  const img = R.selImg;
+  if (!img) return;
+  e.preventDefault();
+  imgHandle.setPointerCapture(e.pointerId);
+  const r0 = img.getBoundingClientRect();
+  const bw = imgBlock(img).getBoundingClientRect().width || 1;
+  const ratio = r0.width / r0.height;
+  const right = img.classList.contains('al-right');
+  const centered = !right && !img.classList.contains('al-left');
+  const sx = e.clientX, sy = e.clientY;
+  const move = (ev) => {
+    const dx = (ev.clientX - sx) * (right ? -1 : 1), dy = (ev.clientY - sy) * ratio;
+    const d = ((dx + dy) / 2) * (centered ? 2 : 1);
+    setImgPct(img, ((r0.width + d) / bw) * 100);
+    positionImgUI();
+  };
+  const up = () => {
+    imgHandle.removeEventListener('pointermove', move); imgHandle.removeEventListener('pointerup', up); imgHandle.removeEventListener('pointercancel', up);
+    markDirty(img.closest('.note-edit'));
+  };
+  imgHandle.addEventListener('pointermove', move);
+  imgHandle.addEventListener('pointerup', up);
+  imgHandle.addEventListener('pointercancel', up);
+});
+/* ---------- Taille du texte (échelle 4 → 25) ----------
+   1 unité = 1 pt de la page de notes ; dans une zone de texte, 11 = taille de base de la zone.
+   La taille est stockée en calc(var(--u) * N) : elle suit le zoom et le bouton A−/A＋. */
+const SIZE_MARK = '7';
+function boxUnit(fs) { return `calc(var(--s, 1) * ${(fs / 11).toFixed(4)}px)`; }
+function sizeStyle(n) { return `calc(var(--u) * ${n})`; }
+function applySize(n) {
+  if (!ensureFocus()) return;
+  const ed = R.activeEditor;
+  R.pendingSize = n;
+  document.execCommand('styleWithCSS', false, false);
+  document.execCommand('fontSize', false, SIZE_MARK);
+  convertSizeMarkers(ed, true);
+  markDirty(ed);
+}
+// execCommand crée des <font size=7> : on les remplace par des <span> à notre échelle
+function convertSizeMarkers(ed, reselect) {
+  const fonts = ed.querySelectorAll(`font[size="${SIZE_MARK}"]`);
+  if (!fonts.length) return;
+  const n = R.pendingSize || 11;
+  const sel = getSelection();
+  const saved = sel.rangeCount ? { a: sel.anchorNode, ao: sel.anchorOffset, f: sel.focusNode, fo: sel.focusOffset, collapsed: sel.isCollapsed } : null;
+  const spans = [];
+  for (const f of fonts) {
+    const span = document.createElement('span');
+    span.style.fontSize = sizeStyle(n);
+    for (const k of ['color', 'face']) if (f.getAttribute(k)) { if (k === 'color') span.style.color = f.getAttribute(k); }
+    span.append(...f.childNodes);
+    for (const d of span.querySelectorAll('[style]')) { d.style.fontSize = ''; if (!d.getAttribute('style')) d.removeAttribute('style'); }
+    for (const d of span.querySelectorAll(`font[size]`)) d.removeAttribute('size');
+    f.replaceWith(span);
+    spans.push(span);
+  }
+  try {
+    if (reselect && saved && !saved.collapsed && spans.length) {
+      const r = document.createRange();
+      r.setStartBefore(spans[0]); r.setEndAfter(spans[spans.length - 1]);
+      sel.removeAllRanges(); sel.addRange(r);
+    } else if (saved && ed.contains(saved.a)) {
+      sel.setBaseAndExtent(saved.a, saved.ao, saved.f, saved.fo);
+    } else if (saved?.collapsed && spans.length) {
+      const last = spans[spans.length - 1];
+      const r = document.createRange(); r.selectNodeContents(last); r.collapse(false);
+      sel.removeAllRanges(); sel.addRange(r);
+    }
+  } catch {}
+}
+function currentSize() {
+  const ed = R.activeEditor, sel = getSelection();
+  if (!ed || !sel.rangeCount || !ed.contains(sel.anchorNode)) return '';
+  const el = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
+  const px = parseFloat(getComputedStyle(el).fontSize);
+  const holder = ed._kind === 'box' ? R.boxEls.get(ed._id) : ed.closest('.note-paper');
+  const s = parseFloat(getComputedStyle(holder || ed).getPropertyValue('--s')) || 1;
+  const unit = ed._kind === 'box' ? s * ((boxById(ed._id)?.fs || 11) / 11) : s;
+  return String(Math.round(px / unit));
+}
+const sizeSel = $('#sizeSel');
+sizeSel.addEventListener('change', () => { const n = parseInt(sizeSel.value, 10); if (n) applySize(n); });
+
 function updateEmpty(ed) { ed.classList.toggle('is-empty', !ed.textContent.trim() && !ed.querySelector('img')); }
 
 const fmtBar = $('#fmtBar');
@@ -632,6 +811,7 @@ function makeBox(b) {
   el.innerHTML = `<div class="tb-grip" title="Déplacer">✥</div><div class="tb-edit rich" contenteditable="true" data-ph="Ton texte…"></div><div class="tb-resize" title="Largeur">↔</div>`;
   const ed = $('.tb-edit', el);
   ed.style.fontSize = b.fs + 'em';
+  ed.style.setProperty('--u', boxUnit(b.fs));
   ed.innerHTML = b.html || '';
   setupEditor(ed, 'box', b.id);
   const pageEl = R.pageEls[b.page];
@@ -688,6 +868,7 @@ function boxAction(act, ed) {
   if (act === 'smaller' || act === 'bigger') {
     b.fs = clamp(b.fs + (act === 'bigger' ? 1 : -1) * Math.max(1, Math.round(b.fs * 0.1)), 5, 120);
     ed.style.fontSize = b.fs + 'em';
+    ed.style.setProperty('--u', boxUnit(b.fs));
   } else if (act === 'bg') {
     const order = ['white', 'yellow', 'none'];
     b.bg = order[(order.indexOf(b.bg || 'white') + 1) % order.length];
@@ -738,7 +919,7 @@ function makeNote(n) {
   return el;
 }
 function hydrateImages(root, urls) {
-  for (const img of $$('img[data-img]', root)) img.src = urls.get(img.dataset.img) || '';
+  for (const img of $$('img[data-img]', root)) { img.src = urls.get(img.dataset.img) || ''; img.draggable = false; }
 }
 function addNote(after) {
   const sz = R.doc.sizes[after];
@@ -894,6 +1075,8 @@ document.addEventListener('selectionchange', () => {
   if (R.activeEditor && sel.rangeCount && R.activeEditor.contains(sel.anchorNode)) {
     R.savedRange = sel.getRangeAt(0).cloneRange();
     refreshFmtState();
+    const v = currentSize();
+    sizeSel.value = [...sizeSel.options].some((o) => o.value === v) ? v : '';
   }
   clearTimeout(selT);
   selT = setTimeout(onTextSelection, 200);
@@ -1009,6 +1192,7 @@ viewer.addEventListener('click', (e) => {
 });
 document.addEventListener('pointerdown', (e) => {
   if (!e.target.closest('#hlEditPop')) { $('#hlEditPop').classList.add('hidden'); }
+  if (R.selImg && e.target !== R.selImg && !e.target.closest('#imgPop, #imgHandle')) deselectImage();
   if (e.target.closest('#fmtBar, .pop, .modal-back, .tb-grip, .tb-resize, .note-head, .note-paper')) return;
   if (e.target.closest('.rich')) return;
   deactivateEditor();
@@ -1028,7 +1212,11 @@ function markDirty(ed) {
 }
 function serialize(ed) {
   const c = ed.cloneNode(true);
-  for (const img of $$('img[data-img]', c)) img.removeAttribute('src');
+  for (const img of $$('img[data-img]', c)) {
+    img.removeAttribute('src');
+    img.classList.remove('sel');
+    if (!img.getAttribute('class')) img.removeAttribute('class');
+  }
   return c.innerHTML;
 }
 let saving = Promise.resolve();
@@ -1100,6 +1288,7 @@ async function measureRich({ html, width, fontEm, wrapClass, edClass, vars, urls
   const ed = document.createElement('div');
   ed.className = 'rich ' + (edClass || '');
   ed.style.fontSize = fontEm + 'em';
+  if (edClass === 'tb-edit') ed.style.setProperty('--u', boxUnit(fontEm));
   ed.innerHTML = html || '';
   hydrateImages(ed, urls);
   for (const li of $$('li', ed)) {
@@ -1256,7 +1445,7 @@ async function buildExport(docId, { project }, onProgress) {
           for (const [x, y, w, h] of hl.rects) page.drawRectangle({ x, y: Hd - (y + h), width: w, height: h, color: rgb(c.r, c.g, c.b), opacity: 0.55, blendMode: BlendMode.Multiply });
         }
         for (const b of boxes) {
-          const res = await measureRich({ html: b.html, width: b.w, fontEm: b.fs, wrapClass: 'tbox bg-' + (b.bg || 'white'), edClass: 'tb-edit', urls });
+          const res = await measureRich({ html: b.html, width: b.w, fontEm: b.fs, wrapClass: 'tbox bg-' + (b.bg || 'white'), edClass: 'tb-edit', vars: { '--s': K }, urls });
           if (b.bg === 'white' || b.bg === 'yellow' || !b.bg) {
             const c = b.bg === 'yellow' ? rgb(1, 0.957, 0.659) : rgb(1, 1, 1);
             page.drawRectangle({ x: b.x, y: Hd - (b.y + res.h), width: res.w, height: res.h, color: c, opacity: b.bg === 'yellow' ? 0.94 : 0.9 });
@@ -1369,7 +1558,11 @@ async function exportFlow(docId) {
    ========================================================= */
 try { document.execCommand('defaultParagraphSeparator', false, 'p'); } catch {}
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  const hadController = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.register('sw.js').catch((e) => console.warn('SW', e));
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (hadController) toast('Nouvelle version installée : ferme et rouvre l’appli pour en profiter.', 6000);
+  });
 }
 renderLibrary();
 window.__annot = { R, buildExport, importFile, openDoc, closeReader }; // pour les tests

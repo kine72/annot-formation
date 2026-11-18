@@ -1,5 +1,5 @@
 // Service worker : met toute l'appli en cache pour un fonctionnement 100 % hors ligne.
-const VERSION = 'annotformation-v1';
+const VERSION = 'annotformation-v3';
 const ASSETS = [
  "./",
  "app.css",
@@ -39,7 +39,7 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VERSION).then((c) => c.addAll(ASSETS.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
